@@ -12,10 +12,11 @@ class Network {
     int syncWord = 0x13;
     String personalKey = "0002";
     String serverKey = "0001";
-    String waitingRes;
-    DateTime waitingTime;
     String networkingTableKey[NETWORK_TABLE_LENGTH] = {};
     String networkingTableValue[NETWORK_TABLE_LENGTH] = {};
+    String halfone;
+    String halftwo;
+    String memKey;
 
     void saveId(String id) {
       byte halfone = (byte) strtol(id.substring(0,2).c_str(), 0, 16);
@@ -44,7 +45,7 @@ class Network {
         return false;
       } else {
         LoRa.setSyncWord(syncWord);
-        String memKey = getId();
+        memKey = getId();
         if (personalKey != EMPTYID) {
           saveId(personalKey);
         } else if (personalKey == EMPTYID && memKey == EMPTYID) {
@@ -63,6 +64,7 @@ class Network {
               break;
 
             default:
+              personalKey = key;
               break;
           }
         } else if (memKey != EMPTYID) {
@@ -105,6 +107,7 @@ class Network {
       String endReciever,
       String instruction
     ) {
+//      Serial.println("data");
       LoRa.beginPacket();
       LoRa.print(personalKey);
       LoRa.print(reciever);
@@ -139,10 +142,10 @@ class Network {
       command = incomingMessage.substring(12, 14);
       msg = incomingMessage.substring(14);
 
-      Serial.println("Message: " + sender + ":" + reciever + ":" + endReciever + ":" + command + ":" + msg);
-      Serial.println("RSSI: " + String(LoRa.packetRssi()));
-      Serial.println("Snr: " + String(LoRa.packetSnr()));
-      Serial.println();
+//      Serial.println("Message: " + sender + ":" + reciever + ":" + endReciever + ":" + command + ":" + msg);
+//      Serial.println("RSSI: " + String(LoRa.packetRssi()));
+//      Serial.println("Snr: " + String(LoRa.packetSnr()));
+//      Serial.println();
 
       if (endReciever == personalKey && endReciever.length() == 4) {
         if (getPathToModule(serverKey) == -1 && !saveRoute(serverKey, sender)) {
@@ -154,20 +157,14 @@ class Network {
           );
         }
         return true;
-      } else if (endReciever.length() == 4) {
-        int recieverIndex = getPathToModule(endReciever);
-        String newReciever = recieverIndex > -1 ? networkingTableValue[recieverIndex] : endReciever;
+      } else if ( reciever == personalKey && endReciever.length() == 4 && getPathToModule(endReciever) > -1) {
+        String newReciever = getReciever(endReciever);
         if (command == "01" && msg.length() == 4) {
-          saveRoute(endReciever, newReciever);
+          saveRoute(msg, newReciever);
         }
         sendMessage(msg, newReciever, endReciever, command);
-      } else {
-        sendMessage(
-          (String&)personalKey + endReciever + command,
-          sender,
-          serverKey,
-          (String&)"05"
-        );
+      } else if (reciever == personalKey) {
+        sendError((String&)"Cant find route");
       }
       return false;
     };
@@ -205,10 +202,10 @@ class Network {
 
     void sendError(String message) {
       sendMessage(
-        (String&)personalKey + endReciever + personalKey + command + message,
-        getPathToModule(serverKey),
+        (String&)personalKey + endReciever + command + message,
+        getReciever(serverKey),
         serverKey,
         "05"
-      )
+      );
     }
 };

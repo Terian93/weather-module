@@ -1,6 +1,7 @@
 #include "rtc.cpp"
 #include "network.cpp"
 #include "sensors.cpp"
+#include <Wire.h>
 
 #define ANALOG_READ_COEF 0.0156402737047898 //(5.0 / 1023)* 3.2
 #define DIVIDER '|'
@@ -9,13 +10,20 @@ RTC rtc;
 Network network;
 Sensors sensors;
 bool sleep = false;
-float lastSend[3]= {NULL};
+float lastSend[SENSORS_AMOUNT]= {NULL};
 
 float solVoltage;
 float insideTemp;
 float batVoltage;
 
+float temp;
+float preasure;
+float humidity;
+String timestring;
+String datamessage;
+
 void conectionInit() {
+  Wire.begin();
   Serial.println("1. Connecting RTC module");
   rtc.init();
   Serial.println("2. Connecting LoRa module");
@@ -79,7 +87,7 @@ void loop() {
         "04"
       );
     } else {
-      delay(2UL * 60UL * 60UL * 1000UL);
+      delay(6UL * 60UL * 60UL * 1000UL);
     }
   } else {
 
@@ -91,7 +99,7 @@ void loop() {
             if(!network.saveRoute(network.msg, network.msg)) {
               network.sendError("Cant save route");
             }else {
-              network.sendMessage(NULL, network.msg, network.msg, "00")
+              network.sendMessage((String)"", network.msg, network.msg, "00");
             }
           } else if (network.msg.length() == 8) {
             if(!network.saveRoute(network.msg.substring(0,4), network.msg.substring(4,8))) {
@@ -104,66 +112,66 @@ void loop() {
         case 2:
           checkStatus(true);
           break;
-        case 7:
-          input = sensors.getTemp();
-          if (checkIfCanBeSend(0, input)) {
-            network.sendMessage(
-              String(input),
-              network.getReciever(network.getServerKey()),
-              network.getServerKey(),
-              String("07")
-            );
-            lastSend[0] = input;
-          }
-          break;
-        case 8:
-          input = sensors.getPreasure();
-          if (checkIfCanBeSend(1, input)) {
-            network.sendMessage(
-              String(input),
-              network.getReciever(network.getServerKey()),
-              network.getServerKey(),
-              String("08")
-            );
-            lastSend[1] = input;
-          }
-          break;
-        case 9:
-          input = sensors.getHumidity();
-          if (checkIfCanBeSend(2, input)) {
-            network.sendMessage(
-              String(input),
-              network.getReciever(network.getServerKey()),
-              network.getServerKey(),
-              String("09")
-            );
-            lastSend[2] = input;
-          }
-          break;
+//        case 7:
+//          input = sensors.getTemp();
+//          if (checkIfCanBeSend(0, input)) {
+//            network.sendMessage(
+//              String(input),
+//              network.getReciever(network.getServerKey()),
+//              network.getServerKey(),
+//              String("07")
+//            );
+//            lastSend[0] = input;
+//          }
+//          break;
+//        case 8:
+//          input = sensors.getPreasure();
+//          if (checkIfCanBeSend(1, input)) {
+//            network.sendMessage(
+//              String(input),
+//              network.getReciever(network.getServerKey()),
+//              network.getServerKey(),
+//              String("08")
+//            );
+//            lastSend[1] = input;
+//          }
+//          break;
+//        case 9:
+//          input = sensors.getHumidity();
+//          if (checkIfCanBeSend(2, input)) {
+//            network.sendMessage(
+//              String(input),
+//              network.getReciever(network.getServerKey()),
+//              network.getServerKey(),
+//              String("09")
+//            );
+//            lastSend[2] = input;
+//          }
+//          break;
         default:
           Serial.println("Unknown command" + network.command);
           network.sendError("Unknown command");
           break;
       }
     }
-
     if (rtc.alarmChecker()) {
-      float temp = sensors.getTemp();
-      float preasure = sensors.getPreasure();
-      float humidity = sensors.getHumidity();
-      String time = rtc.getFullDateNow();
-      String message = String(time + DIVIDER +
+      temp = sensors.getTemp();
+      preasure = sensors.getPreasure();
+      humidity = sensors.getHumidity();
+      timestring = rtc.getFullDateNow();
+      datamessage = String(timestring + DIVIDER +
         (checkIfCanBeSend(0, temp) ? String(temp) : String("")) + DIVIDER +
         (checkIfCanBeSend(1, preasure) ? String(preasure) : String("")) + DIVIDER +
         (checkIfCanBeSend(2, humidity) ? String(humidity) : String(""))
       );
-      Serial.println(message);
-      network.sendMessage(
-        message,
-        network.getReciever(network.getServerKey()),
-        network.getServerKey(),
-        "00"
-      );
+      Serial.println(timestring);
+           
+//      network.sendMessage(
+//        datamessage,
+//        network.getReciever(network.getServerKey()),
+//        network.getServerKey(),
+//        (String)"00"
+//      );
     }
   } 
 }
