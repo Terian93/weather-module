@@ -9,7 +9,7 @@
 class Network {
   private:
     bool state = false;
-    int syncWord = 0x13;
+    int syncWord = 0x15;
     String personalKey = "0002";
     String serverKey = "0001";
     String networkingTableKey[NETWORK_TABLE_LENGTH] = {};
@@ -39,34 +39,37 @@ class Network {
     String msg;
 
     bool init(long seed) {
-      state = LoRa.begin(433E6);
+      state = LoRa.begin(434E6);
       if (!state) {
         Serial.println("020/-/ LoRa init failed!");
         return false;
       } else {
+        idle();
         LoRa.setSyncWord(syncWord);
         memKey = getId();
         if (personalKey != EMPTYID) {
           saveId(personalKey);
         } else if (personalKey == EMPTYID && memKey == EMPTYID) {
-          randomSeed(seed);
-          String key = String(random(2, 65536), 16); //equals to 4 digit hex;
-          switch (key.length())
-          {
-            case 1:
-              personalKey = "000" + key;
-              break;
-            case 2:
-              personalKey = "00" + key;
-              break;
-            case 3:
-              personalKey = "0" + key;
-              break;
+          personalKey = "0002";
+          // randomSeed(seed);
+          // String key = String(random(2, 65536), 16); //equals to 4 digit hex;
+          // switch (key.length())
+          // {
+          //   case 1:
+          //     personalKey = "000" + key;
+          //     break;
+          //   case 2:
+          //     personalKey = "00" + key;
+          //     break;
+          //   case 3:
+          //     personalKey = "0" + key;
+          //     break;
 
-            default:
-              personalKey = key;
-              break;
-          }
+          //   default:
+          //     personalKey = key;
+          //     break;
+          // }
+          saveId(personalKey);
         } else if (memKey != EMPTYID) {
           personalKey = memKey;
         }
@@ -77,13 +80,13 @@ class Network {
 
     }
 
-    void changePersonalKey(String key) {
-      if (key.length() == 4) {
-        personalKey = key;
-        Serial.print("021/-/ LoRa changed key to:");
-        Serial.println(String(personalKey));
-      }
-    }
+    // void changePersonalKey(String key) {
+    //   if (key.length() == 4) {
+    //     personalKey = key;
+    //     Serial.print("021/-/ LoRa changed key to:");
+    //     Serial.println(String(personalKey));
+    //   }
+    // }
 
     void idle() {
       LoRa.idle();
@@ -115,16 +118,16 @@ class Network {
       LoRa.print(instruction);
       LoRa.print(message);
       LoRa.endPacket();
-      Serial.println();
-      Serial.print(reciever);
-      Serial.print(':');
-      Serial.print(personalKey);
-      Serial.print(':');
-      Serial.print(endReciever);
-      Serial.print(':');
-      Serial.print(instruction);
-      Serial.print(':');
-      Serial.println(message);
+      // Serial.println();
+      // Serial.print(reciever);
+      // Serial.print(':');
+      // Serial.print(personalKey);
+      // Serial.print(':');
+      // Serial.print(endReciever);
+      // Serial.print(':');
+      // Serial.print(instruction);
+      // Serial.print(':');
+      // Serial.println(message);
     }
 
     bool onRecieve() {
@@ -148,23 +151,26 @@ class Network {
 //      Serial.println();
 
       if (endReciever == personalKey && endReciever.length() == 4) {
-        if (getPathToModule(serverKey) == -1 && !saveRoute(serverKey, sender)) {
-          sendMessage(
-            (String&)(personalKey + personalKey + "01"+"1"),
-            sender,
-            serverKey,
-            (String&)"05"
-          );
+        if (getPathToModule(serverKey) == -1 ) {
+          if (!saveRoute(serverKey, sender)) {
+            sendMessage(
+              (String&)(personalKey + personalKey + "01"+"1"), //TODO: Thats not working. Change with concat or other method
+              sender,
+              serverKey,
+              (String&)"05"
+            );
+          }
         }
-        return true;
-      } else if ( reciever == personalKey && endReciever.length() == 4 && getPathToModule(endReciever) > -1) {
+        return  command != "02";
+      } 
+      if ( reciever == personalKey && endReciever.length() == 4 && getPathToModule(endReciever) > -1) {
         String newReciever = getReciever(endReciever);
         if (command == "01" && msg.length() == 4) {
           saveRoute(msg, newReciever);
         }
         sendMessage(msg, newReciever, endReciever, command);
       } else if (reciever == personalKey) {
-        sendError((String&)"Cant find route");
+        sendError((String)"Cant find route");
       }
       return false;
     };
@@ -201,8 +207,12 @@ class Network {
     }
 
     void sendError(String message) {
+      String errMsg = String(personalKey);
+      errMsg.concat(endReciever);
+      errMsg.concat(command);
+      errMsg.concat(message);
       sendMessage(
-        (String&)personalKey + endReciever + command + message,
+        errMsg,
         getReciever(serverKey),
         serverKey,
         "05"

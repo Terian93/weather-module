@@ -2,9 +2,12 @@
 #include "network.cpp"
 #include "sensors.cpp"
 #include <Wire.h>
+#include <LoRa.h>
+#include <limits.h>
 
 #define ANALOG_READ_COEF 0.0156402737047898 //(5.0 / 1023)* 3.2
-#define DIVIDER '|'
+
+static const String DIVIDER = String("|");
 
 RTC rtc;
 Network network;
@@ -22,23 +25,9 @@ float humidity;
 String timestring;
 String datamessage;
 
-void conectionInit() {
-  Wire.begin();
-  Serial.println("1. Connecting RTC module");
-  rtc.init();
-  Serial.println("2. Connecting LoRa module");
-  if (rtc.initialized) {
-    network.init(rtc.getTimeObject().unixtime());
-  } else {
-    network.init(DateTime(__DATE__, __TIME__).unixtime());
-  }
-  Serial.println("3. Connecting Sensors");
-  sensors.init();
-}
-
 void checkStatus(bool canSendStatus = false) {
-  batVoltage = (analogRead(A0) * ANALOG_READ_COEF);
-  solVoltage = (analogRead(A1) * ANALOG_READ_COEF);
+  batVoltage = (analogRead(0) * ANALOG_READ_COEF);
+  solVoltage = (analogRead(1) * ANALOG_READ_COEF);
   insideTemp = rtc.getTemperature();
   if (batVoltage < 3.4) {
     network.sendMessage(
@@ -51,7 +40,7 @@ void checkStatus(bool canSendStatus = false) {
     network.sleep();
   } else if (canSendStatus) {
     network.sendMessage(
-      (String) rtc.getFullDateNow() + DIVIDER + batVoltage + DIVIDER + solVoltage + DIVIDER + insideTemp,
+      (String) rtc.getFullDateNow() + DIVIDER + batVoltage + DIVIDER + solVoltage + DIVIDER + insideTemp,//TODO: Thats not working. Change with concat or other method
       network.getReciever(network.getServerKey()),
       network.getServerKey(),
       String("02")
@@ -61,17 +50,31 @@ void checkStatus(bool canSendStatus = false) {
 
 bool checkIfCanBeSend(int sensorId, float value) {
   if (lastSend[sensorId] == NULL) {
+    lastSend[sensorId] = value;
     return true;
   }
-  float perviousValue = lastSend[sensorId];
-  float diff = abs(100 - (value / (perviousValue / 100)));
-  return diff > 2;
+  float diff = abs(100 - (value / (lastSend[sensorId] / 100)));
+  if (diff > 2) {
+    lastSend[sensorId] = value;
+    return true;
+  } else {
+    return false;
+  };
 }
 
 void setup() {
   Serial.begin(9600);
   Serial.println("001/-/ Module started. Checking modules");
-  conectionInit();
+  Serial.println("1. Connecting RTC module");
+  rtc.init();
+  Serial.println("2. Connecting LoRa module");
+  if (rtc.initialized) {
+    network.init(rtc.getTimeObject().unixtime());
+  } else {
+    network.init(DateTime(__DATE__, __TIME__).unixtime());
+  }
+  Serial.println("3. Connecting Sensors");
+  sensors.init();
 }
 
 void loop() {
@@ -158,20 +161,23 @@ void loop() {
       temp = sensors.getTemp();
       preasure = sensors.getPreasure();
       humidity = sensors.getHumidity();
-      timestring = rtc.getFullDateNow();
-      datamessage = String(timestring + DIVIDER +
-        (checkIfCanBeSend(0, temp) ? String(temp) : String("")) + DIVIDER +
-        (checkIfCanBeSend(1, preasure) ? String(preasure) : String("")) + DIVIDER +
-        (checkIfCanBeSend(2, humidity) ? String(humidity) : String(""))
-      );
-      Serial.println(timestring);
-           
-//      network.sendMessage(
-//        datamessage,
-//        network.getReciever(network.getServerKey()),
-//        network.getServerKey(),
-//        (String)"00"
-//      );
+      timestring = String(rtc.getFullDateNow());
+      Serial.println("sent");
+      LoRa.beginPacket();
+      LoRa.print(network.getPersonalKey());
+      LoRa.print(network.getReciever(network.getServerKey()));
+      LoRa.print(network.getServerKey());
+      LoRa.print("00");
+      LoRa.print(timestring);
+      LoRa.print(DIVIDER);
+      LoRa.print(checkIfCanBeSend(0, temp) ? String(temp) : String(""));
+      LoRa.print(DIVIDER);
+      LoRa.print(checkIfCanBeSend(1, preasure) ? String(preasure) : String(""));
+      LoRa.print(DIVIDER);
+      LoRa.print(checkIfCanBeSend(2, humidity) ? String(humidity) : String(""));
+      LoRa.endPacket();
+      delay(2000);
+      checkStatus(false);
     }
   } 
 }

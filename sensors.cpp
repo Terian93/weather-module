@@ -200,14 +200,14 @@ class Sensors {
     }
 
     float getTemp() {
-      return readTemperature();
+      return smm(readTemperature(), 0);
     }
 
     float getPreasure() {
-      return readPressure();
+      return smm(readPressure(), 1);
     }
 
     float getHumidity() {
-      return readHumidity();
+      return smm(readHumidity(), 2);
     }
 };
