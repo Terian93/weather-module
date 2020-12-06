@@ -37,7 +37,7 @@ class RTC {
     String getFullDateNow() {
       char text[20];
       nowTime = core.now();
-      sprintf(text, "%02d:%02d:%02d %02d/%02d/%02d",  nowTime.hour(), nowTime.minute(), nowTime.second(), nowTime.day(), nowTime.month(), nowTime.year());
+      sprintf(text, "%04d-%02d-%02dT%02d:%02d:%02d", nowTime.year(), nowTime.month(), nowTime.day(), nowTime.hour(), nowTime.minute(), nowTime.second());
       return String(text);
     }
 
@@ -47,11 +47,6 @@ class RTC {
 
     void setAlarm(int minutes = 30) {
       alarm = millis() + (5 * 1000 /*minutes * 60 * 1000*/);
-    //  sprintf(text, "%02d:%02d:%02d %02d/%02d/%02d",  alarm.hour(), alarm.minute(), alarm.second(), alarm.day(), alarm.month(), alarm.year());
-    //  Serial.println(text);
-    //  now = core.now();
-    //  sprintf(text, "%02d:%02d:%02d %02d/%02d/%02d",  now.hour(), now.minute(), now.second(), now.day(), now.month(), now.year());
-    //  Serial.println(text);
     }
 
     bool alarmChecker() {

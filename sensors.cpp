@@ -60,7 +60,7 @@ class Sensors {
       }
       
       qsort(bufferCopy, SELECTION_SIZE, sizeof(float), cmpfunc);
-      float output = (bufferCopy[4] + bufferCopy[5]) / 2;
+      float output = bufferCopy[2];
       return output;
     }
 

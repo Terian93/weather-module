@@ -6,6 +6,8 @@
 #define EMPTYID "0000"
 #define NETWORK_TABLE_LENGTH 20
 
+static const char DIVIDER = "|";
+
 class Network {
   private:
     bool state = false;
@@ -39,7 +41,7 @@ class Network {
     String msg;
 
     bool init(long seed) {
-      state = LoRa.begin(434E6);
+      state = LoRa.begin(433E6);
       if (!state) {
         Serial.println("020/-/ LoRa init failed!");
         return false;
@@ -108,7 +110,8 @@ class Network {
       String message,
       String reciever,
       String endReciever,
-      String instruction
+      String instruction,
+      bool finishTransfer = true
     ) {
 //      Serial.println("data");
       LoRa.beginPacket();
@@ -117,7 +120,10 @@ class Network {
       LoRa.print(endReciever);
       LoRa.print(instruction);
       LoRa.print(message);
-      LoRa.endPacket();
+      if (finishTransfer) {
+        LoRa.endPacket();
+      }
+      
       // Serial.println();
       // Serial.print(reciever);
       // Serial.print(':');
@@ -128,6 +134,33 @@ class Network {
       // Serial.print(instruction);
       // Serial.print(':');
       // Serial.println(message);
+    }
+
+    void sendComplexMessage(
+      String date,
+      String reciever,
+      String endReciever,
+      String instruction,
+      float additionalData[],
+      bool printData[],
+      int dataLength = 3
+    ) {
+      sendMessage(
+        date,
+        reciever,
+        endReciever,
+        instruction,
+        false
+      );
+      LoRa.print(DIVIDER);
+      LoRa.print(personalKey);
+      for (int i = 0; i < dataLength; i++){
+        LoRa.print(DIVIDER);
+        if(printData[i]){
+          LoRa.print(additionalData[i]);
+        }
+      }
+      LoRa.endPacket();
     }
 
     bool onRecieve() {
@@ -153,12 +186,12 @@ class Network {
       if (endReciever == personalKey && endReciever.length() == 4) {
         if (getPathToModule(serverKey) == -1 ) {
           if (!saveRoute(serverKey, sender)) {
-            sendMessage(
-              (String&)(personalKey + personalKey + "01"+"1"), //TODO: Thats not working. Change with concat or other method
-              sender,
-              serverKey,
-              (String&)"05"
-            );
+            // sendMessage(
+            //   (String&)(personalKey + personalKey + "01"+"1"), //TODO: Thats not working. Change with concat or other method
+            //   sender,
+            //   serverKey,
+            //   (String&)"05"
+            // );
           }
         }
         return  command != "02";
@@ -170,7 +203,7 @@ class Network {
         }
         sendMessage(msg, newReciever, endReciever, command);
       } else if (reciever == personalKey) {
-        sendError((String)"Cant find route");
+//        sendError((String)"Cant find route");
       }
       return false;
     };
@@ -206,16 +239,16 @@ class Network {
       return false;
     }
 
-    void sendError(String message) {
-      String errMsg = String(personalKey);
-      errMsg.concat(endReciever);
-      errMsg.concat(command);
-      errMsg.concat(message);
-      sendMessage(
-        errMsg,
-        getReciever(serverKey),
-        serverKey,
-        "05"
-      );
-    }
+//    void sendError(String message) {
+//      String errMsg = String(personalKey);
+//      errMsg.concat(endReciever);
+//      errMsg.concat(command);
+//      errMsg.concat(message);
+//      sendMessage(
+//        errMsg,
+//        getReciever(serverKey),
+//        serverKey,
+//        "05"
+//      );
+//    }
 };
